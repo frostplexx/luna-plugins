@@ -1,0 +1,11 @@
+{
+	"name": "@luna/command-palette",
+	"description": "A command palette for searching albums, artists, tracks, and your collection.",
+	"author": {
+		"name": "Frostplexx",
+		"url": "https://github.com/frostplexx",
+		"avatarUrl": "https://avatars.githubusercontent.com/u/62436912?v=4"
+	},
+	"main": "./src/index.ts",
+	"type": "module"
+}
