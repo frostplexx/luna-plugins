@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@types/node':
-        specifier: ^25.0.9
-        version: 25.9.9
+        specifier: ^26.0.0
+        version: 26.6.5
       '@types/react':
         specifier: ^19.2.8
         version: 19.3.0
