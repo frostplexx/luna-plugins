@@ -2,19 +2,35 @@ import React from "react";
 
 export type PaletteItemType = "album" | "playlist" | "track" | "artist" | "collection";
 
+/** Subtitle fallback, mirroring TIDAL's native item type labels */
+const TYPE_LABELS: Record<PaletteItemType, string> = {
+	track: "Song",
+	album: "Album",
+	playlist: "Playlist",
+	artist: "Artist",
+	collection: "Collection",
+};
+
 export interface PaletteItemProps {
 	type: PaletteItemType;
 	name: string;
+	/** Secondary line. Defaults to the item's type label (Song/Album/...) */
+	subtitle?: string;
 	/** Cover / profile picture URL. Resolved from e.g. `Album.coverUrl()`, `Artist.coverUrl()`, `MediaItem.coverUrl()` */
 	artworkUrl?: string;
 	/** For "collection" results: the sidebar data-test suffix used to source Tidal's own icon */
 	collectionKey?: string;
-	onClick?: () => void;
-	/** Highlighted via keyboard navigation */
+	/** Highlighted without DOM focus (e.g. the pre-selected first row) */
 	selected?: boolean;
+	onClick?: (e: React.MouseEvent | React.KeyboardEvent) => void;
 }
 
-export const PaletteItem = React.memo(({ type, name, artworkUrl, collectionKey, onClick, selected }: PaletteItemProps) => {
+/**
+ * A suggestion row mirroring TIDAL's native search "direct hit": 48px artwork,
+ * title (description-demi) + subtitle, highlighted via `:focus-within` — rows
+ * are focused (roving tabIndex) rather than class-toggled.
+ */
+export const PaletteItem = React.memo(({ type, name, subtitle, artworkUrl, collectionKey, selected, onClick }: PaletteItemProps) => {
 	const round = type === "artist";
 	// Fall back to the placeholder if the image fails to load
 	const [broken, setBroken] = React.useState(false);
@@ -26,11 +42,23 @@ export const PaletteItem = React.memo(({ type, name, artworkUrl, collectionKey, 
 			`[data-test="sidebar-collection-${collectionKey}"] svg, [data-test="sidebar-collection-${collectionKey}"] i`,
 		);
 		setCollectionIcon(el?.outerHTML);
-	}, [collectionKey, selected]);
+	}, [collectionKey]);
 
-	const itemClass = `luna-command-palette-item${selected ? " selected" : ""}${round ? " round" : ""}`;
+	const itemClass = `luna-command-palette-item${round ? " round" : ""}${selected ? " luna-command-palette-selected" : ""}`;
 	return (
-		<div className={itemClass} onClick={onClick}>
+		<div
+			className={itemClass}
+			role="button"
+			tabIndex={-1}
+			data-luna-palette-focusable=""
+			onClick={onClick}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onClick?.(e);
+				}
+			}}
+		>
 			{artworkUrl && !broken ? (
 				<img className="luna-command-palette-artwork" src={artworkUrl} loading="lazy" onError={() => setBroken(true)} />
 			) : collectionIcon ? (
@@ -42,8 +70,10 @@ export const PaletteItem = React.memo(({ type, name, artworkUrl, collectionKey, 
 			) : (
 				<div className="placeholder" />
 			)}
-			<span className="name">{name}</span>
-			<span className="type">{type}</span>
+			<span className="luna-command-palette-text">
+				<span className="luna-command-palette-title">{name}</span>
+				<span className="luna-command-palette-subtitle">{subtitle ?? TYPE_LABELS[type]}</span>
+			</span>
 		</div>
 	);
 });
