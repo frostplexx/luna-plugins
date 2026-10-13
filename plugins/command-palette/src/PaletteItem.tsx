@@ -9,7 +9,7 @@ export interface PaletteItemProps {
 	artworkUrl?: string;
 	/** For "collection" results: the sidebar data-test suffix used to source Tidal's own icon */
 	collectionKey?: string;
-	onClick?: () => void;
+	onClick?: (e: React.MouseEvent) => void;
 	/** Highlighted via keyboard navigation */
 	selected?: boolean;
 }

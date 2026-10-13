@@ -6,7 +6,7 @@ import { StyleTag } from "@luna/lib";
 import paletteStyles from "file://./style.css?minify";
 
 import { PaletteItem } from "./PaletteItem";
-import { openResult, loadUserPlaylists, search, searchUserContent, type SearchResult } from "./search";
+import { openResult, playResult, loadUserPlaylists, search, searchUserContent, type SearchResult } from "./search";
 
 export interface PaletteControls {
     open: () => void;
@@ -132,7 +132,11 @@ export const setupPalette = (unloads: Set<LunaUnload>): PaletteControls => {
                 e.preventDefault();
                 const r = results[selected];
                 if (r) {
-                    openResult(r);
+                    if (e.shiftKey) {
+                        playResult(r);
+                    } else {
+                        openResult(r);
+                    }
                     setOpen(false);
                 }
                 return;
@@ -192,8 +196,13 @@ export const setupPalette = (unloads: Set<LunaUnload>): PaletteControls => {
                                 artworkUrl={r.artworkUrl}
                                 collectionKey={r.collectionKey}
                                 selected={i === selected}
-                                onClick={() => {
-                                    openResult(r);
+                                onClick={(e) => {
+                                    // If shift key is held play instead of navigating to the result page
+                                    if (e.shiftKey) {
+                                        playResult(r);
+                                    } else {
+                                        openResult(r);
+                                    }
                                     setOpen(false);
                                 }}
                             />
