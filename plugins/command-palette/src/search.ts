@@ -6,6 +6,8 @@ export interface SearchResult {
     id: string;
     type: PaletteItemType;
     name: string;
+    /** Secondary line, like TIDAL's "Album · Artist" suggestion subtitles */
+    subtitle?: string;
     artworkUrl?: string;
     /** For "collection" results: the sidebar data-test suffix used to source the icon */
     collectionKey?: string;
@@ -24,10 +26,20 @@ interface ApiArtist {
 
 interface ApiSearchResponse {
     artists?: Paged<ApiArtist>;
-    albums?: Paged<{ id: string; title: string; cover?: string }>;
-    playlists?: Paged<{ uuid: string; title: string; squareImage?: string }>;
-    tracks?: Paged<{ id: string; title: string; album?: { cover?: string } }>;
+    albums?: Paged<{ id: string; title: string; cover?: string; artist?: { name?: string } }>;
+    playlists?: Paged<{ uuid: string; title: string; squareImage?: string; creator?: { name?: string } }>;
+    tracks?: Paged<{ id: string; title: string; album?: { cover?: string }; artist?: { name?: string } }>;
 }
+
+/** Reads a loose `artist`/`creator` name off cached/API objects without fighting types */
+const personName = (x: unknown): string | undefined => {
+    const name = (x as { artist?: { name?: string }; creator?: { name?: string } })?.artist?.name
+        ?? (x as { creator?: { name?: string } })?.creator?.name;
+    return typeof name === "string" && name ? name : undefined;
+};
+
+/** Composes TIDAL-style subtitles: "Album · Artist", falling back to just the label */
+const withPerson = (label: string, person?: string): string => (person ? `${label} · ${person}` : label);
 
 /**
  * Queries Tidal's v1 search endpoint using the app's own credentials.
@@ -41,16 +53,16 @@ export const search = async (query: string, limit = 10): Promise<SearchResult[] 
 
     const results: SearchResult[] = [];
     for (const a of res.artists?.items ?? []) {
-        results.push({ id: `artist:${a.id}`, type: "artist", name: a.name, artworkUrl: ContentBase.formatCoverUrl(a.picture, { res: "320" }) });
+        results.push({ id: `artist:${a.id}`, type: "artist", name: a.name, subtitle: "Artist", artworkUrl: ContentBase.formatCoverUrl(a.picture, { res: "320" }) });
     }
     for (const al of res.albums?.items ?? []) {
-        results.push({ id: `album:${al.id}`, type: "album", name: al.title, artworkUrl: ContentBase.formatCoverUrl(al.cover, { res: "80" }) });
+        results.push({ id: `album:${al.id}`, type: "album", name: al.title, subtitle: withPerson("Album", al.artist?.name), artworkUrl: ContentBase.formatCoverUrl(al.cover, { res: "80" }) });
     }
     for (const p of res.playlists?.items ?? []) {
-        results.push({ id: `playlist:${p.uuid}`, type: "playlist", name: p.title, artworkUrl: ContentBase.formatCoverUrl(p.squareImage, { res: "80" }) });
+        results.push({ id: `playlist:${p.uuid}`, type: "playlist", name: p.title, subtitle: withPerson("Playlist", p.creator?.name), artworkUrl: ContentBase.formatCoverUrl(p.squareImage, { res: "80" }) });
     }
     for (const t of res.tracks?.items ?? []) {
-        results.push({ id: `track:${t.id}`, type: "track", name: t.title, artworkUrl: ContentBase.formatCoverUrl(t.album?.cover, { res: "80" }) });
+        results.push({ id: `track:${t.id}`, type: "track", name: t.title, subtitle: withPerson("Song", t.artist?.name), artworkUrl: ContentBase.formatCoverUrl(t.album?.cover, { res: "80" }) });
     }
     return results;
 };
@@ -91,6 +103,7 @@ export const loadUserPlaylists = (): Promise<void> => {
                 id: `playlist:${p.uuid}`,
                 type: "playlist" as const,
                 name: p.title,
+                subtitle: withPerson("Playlist", personName(p)),
                 artworkUrl: ContentBase.formatCoverUrl(p.squareImage, { res: "80" }),
             }));
         } catch {
@@ -129,28 +142,122 @@ export const searchUserContent = (query: string): SearchResult[] => {
     for (const uuid of favorites.playlists) {
         const p = content.playlists[uuid];
         if (p?.title && p.title.toLowerCase().includes(q) && !results.some((r) => r.id === `playlist:${p.uuid}`)) {
-            results.push({ id: `playlist:${p.uuid}`, type: "playlist", name: p.title, artworkUrl: ContentBase.formatCoverUrl(p.squareImage, { res: "80" }) });
+            results.push({ id: `playlist:${p.uuid}`, type: "playlist", name: p.title, subtitle: withPerson("Playlist", personName(p)), artworkUrl: ContentBase.formatCoverUrl(p.squareImage, { res: "80" }) });
         }
     }
     for (const id of favorites.albums) {
         const a = content.albums[String(id)];
         if (a?.title && a.title.toLowerCase().includes(q)) {
-            results.push({ id: `album:${a.id}`, type: "album", name: a.title, artworkUrl: ContentBase.formatCoverUrl(a.cover, { res: "80" }) });
+            results.push({ id: `album:${a.id}`, type: "album", name: a.title, subtitle: withPerson("Album", personName(a)), artworkUrl: ContentBase.formatCoverUrl(a.cover, { res: "80" }) });
         }
     }
     for (const id of favorites.artists) {
         const a = content.artists[String(id)];
         if (a?.name && a.name.toLowerCase().includes(q)) {
-            results.push({ id: `artist:${a.id}`, type: "artist", name: a.name, artworkUrl: ContentBase.formatCoverUrl(a.picture, { res: "320" }) });
+            results.push({ id: `artist:${a.id}`, type: "artist", name: a.name, subtitle: "Artist", artworkUrl: ContentBase.formatCoverUrl(a.picture, { res: "320" }) });
         }
     }
     for (const id of favorites.tracks) {
         const t = content.mediaItems[String(id)]?.item;
         if (t?.title && t.title.toLowerCase().includes(q)) {
-            results.push({ id: `track:${t.id}`, type: "track", name: t.title, artworkUrl: ContentBase.formatCoverUrl(t.album?.cover, { res: "80" }) });
+            results.push({ id: `track:${t.id}`, type: "track", name: t.title, subtitle: withPerson("Song", personName(t)), artworkUrl: ContentBase.formatCoverUrl(t.album?.cover, { res: "80" }) });
         }
     }
     return results;
+};
+
+/**
+ * TIDAL's own "Recent searches" entries (`state.search.recentSearches`). Only
+ * item entries are shown (`albums`/`artists`/`playlists`/`tracks`); the rest
+ * (`search` phrases, `videos`, ...) are skipped.
+ */
+interface RecentSearchEntry {
+    created: number;
+    id: string | number;
+    kind: string;
+    text?: string;
+}
+
+const RECENTS_KIND_TO_TYPE: Record<string, PaletteItemType> = {
+    albums: "album",
+    artists: "artist",
+    playlists: "playlist",
+    tracks: "track",
+};
+const RECENTS_TYPE_TO_KIND: Record<string, string> = {
+    album: "albums",
+    artist: "artists",
+    playlist: "playlists",
+    track: "tracks",
+};
+
+/**
+ * TIDAL's recent searches, mapped to palette results. Item entries are resolved
+ * from the redux content caches (and skipped if missing, like TIDAL's own
+ * restore saga does); phrase entries become `search` rows that re-run the query.
+ */
+export const readRecentSearches = (): SearchResult[] => {
+    const state = redux.store.getState();
+    const entries = state.search?.recentSearches ?? [];
+    const { content } = state;
+
+    const results: SearchResult[] = [];
+    for (const entry of entries) {
+        const type = RECENTS_KIND_TO_TYPE[entry.kind];
+        if (!type) continue; // phrases ("search"), videos, etc. — not shown
+        switch (type) {
+            case "album": {
+                const a = content.albums[String(entry.id)];
+                if (a?.title)
+                    results.push({ id: `album:${entry.id}`, type, name: a.title, subtitle: withPerson("Album", personName(a)), artworkUrl: ContentBase.formatCoverUrl(a.cover, { res: "80" }) });
+                break;
+            }
+            case "artist": {
+                const a = content.artists[String(entry.id)];
+                if (a?.name)
+                    results.push({ id: `artist:${entry.id}`, type, name: a.name, subtitle: "Artist", artworkUrl: ContentBase.formatCoverUrl(a.picture, { res: "320" }) });
+                break;
+            }
+            case "playlist": {
+                const p = content.playlists[String(entry.id)];
+                if (p?.title)
+                    results.push({ id: `playlist:${entry.id}`, type, name: p.title, subtitle: withPerson("Playlist", personName(p)), artworkUrl: ContentBase.formatCoverUrl(p.squareImage, { res: "80" }) });
+                break;
+            }
+            case "track": {
+                const t = content.mediaItems[String(entry.id)]?.item;
+                if (t?.title)
+                    results.push({ id: `track:${entry.id}`, type, name: t.title, subtitle: withPerson("Song", personName(t)), artworkUrl: ContentBase.formatCoverUrl(t.album?.cover, { res: "80" }) });
+                break;
+            }
+        }
+    }
+    return results;
+};
+
+/**
+ * Records an activation in TIDAL's own recent searches, so the entry also shows
+ * up in TIDAL's search bar (TIDAL's saga persists it to its storage).
+ */
+export const addRecentSearch = (result: SearchResult, text: string): void => {
+    const kind = RECENTS_TYPE_TO_KIND[result.type];
+    if (!kind) return; // collections/phrases aren't item recents
+    // Luna's generated action types mark this as `void` payload, but the runtime
+    // action creator (patched from TIDAL's own bundle) takes the entry payload.
+    const addToRecents = redux.actions["search/ADD_TO_RECENT_SEARCHES"] as unknown as (payload: RecentSearchEntry) => void;
+    addToRecents({ created: Date.now(), id: result.id.split(":")[1], kind, text });
+};
+
+/** Clears TIDAL's recent searches (same as the trashcan in its search popover) */
+export const clearRecentSearches = (): void => {
+    redux.actions["search/CLEAR_RECENT_SEARCHES"]();
+};
+
+/**
+ * Navigates to the full search results page for a query (TIDAL's "View all results").
+ */
+export const openSearchResults = (query: string): void => {
+    redux.actions["router/PUSH"]({ pathname: "/search", search: `?q=${encodeURIComponent(query)}`, replace: false });
 };
 
 /**

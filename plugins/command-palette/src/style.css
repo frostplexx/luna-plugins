@@ -1,55 +1,133 @@
-/* Backdrop */
+/*
+ * Command palette styled after TIDAL's native search field + suggestions popover.
+ *
+ * Metrics and colors are copied from TIDAL's own stylesheet and reuse its stable
+ * design tokens (--wave-*, --market-core-*, with literal fallbacks matching the
+ * current dark theme). The search field additionally reuses TIDAL's live CSS
+ * module classes at runtime (see `readNativeField` in Palette.tsx); the rules
+ * below double as the fallback when that copy isn't possible.
+ */
+
+/* Backdrop — like TIDAL's search backdrop: opaque page color */
 .luna-command-palette {
 	position: fixed;
 	inset: 0;
 	z-index: 99999;
 	display: none;
-	background: rgba(0, 0, 0, 0.5);
+    background: color-mix(in srgb, var(--wave-color-solid-base-fill) 00%, transparent);
+}
+
+.luna-command-palette.open {
+	display: block;
+}
+
+.luna-command-palette-inner {
+	position: absolute;
+	inset: 0;
+	display: flex;
 	flex-direction: column;
 	align-items: center;
-	padding-top: 80px;
-}
-.luna-command-palette.open {
-	display: flex;
+	padding-top: 120px;
 }
 
-.luna-command-palette-input {
-	width: 800px;
+/* Search field — wrapper pill (fallback for TIDAL's live `_container_f1be359`),
+   frosted glass like TIDAL's sidebar search field */
+.luna-command-palette-input-wrap {
 	box-sizing: border-box;
-	background-color: #222;
-	/* Search icon as a data-URI background */
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='rgba(255,255,255,0.6)'%3E%3Cpath d='M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
-	background-repeat: no-repeat;
-	background-position: right 20px center;
-	background-size: 20px 20px;
-	color: #fff;
-	padding: 16px;
-	padding-right: 52px;
-	border-radius: 25px;
-	border: 1px solid rgba(255, 255, 255, 0.15);
-	outline: none;
+	width: 800px;
+	flex-shrink: 0;
+    max-height: 60px;
+    color: rgba(255, 255, 255, 0.87) !important;
+	cursor: text;
+	display: flex;
+	align-items: center;
+	position: relative;
+	background-color: var(--frosted-glass-floating-surface, #282828bf) !important; /* !important: beats TIDAL's copied `:focus-within` white-inversion rule in every state */
+	-webkit-backdrop-filter: var(--frosted-glass-nav-blur, blur(20px) saturate(180%));
+	backdrop-filter: var(--frosted-glass-nav-blur, blur(20px) saturate(180%));
+	border-radius: 36px;
+	box-shadow: 0 4px 8px #0000001a, 0 2px 16px #0000001a;
+	transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out;
 }
 
+/* Search icon: TIDAL's own svg is cloned in; this styles the fallback */
+.luna-command-palette-icon-slot {
+	display: contents;
+    padding-left: 10px;
+}
+.luna-command-palette-icon-slot svg,
+.luna-command-palette-icon {
+	position: absolute;
+	top: 50%;
+	left: 16px;
+	transform: translateY(-50%);
+	color: inherit;
+	flex-shrink: 0;
+	width: 16px;
+	height: 16px;
+}
+
+/* Input (fallback for TIDAL's live `_searchField_4b7fbda`) */
+.luna-command-palette-input {
+	color: inherit;
+	background: 0 0;
+	border: none;
+	outline: none;
+	flex-grow: 1;
+	min-width: 0;
+	height: 40px;
+	padding: 0 36px 0 44px;
+	font-size: 16px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	overflow: hidden;
+}
+
+/* Clear button */
+.luna-command-palette-clear {
+	position: absolute;
+	top: 50%;
+	right: 16px;
+	transform: translateY(-50%);
+	width: 24px;
+	height: 24px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	color: inherit;
+	background: none;
+	border: 1px solid transparent;
+	border-radius: 40px;
+	cursor: pointer;
+}
+.luna-command-palette-clear svg {
+	width: 16px;
+	height: 16px;
+}
+
+/* Suggestions panel (TIDAL's `_container_79ca9c5` popover card) */
 .luna-command-palette-list-wrap {
+	box-sizing: border-box;
 	width: 800px;
 	margin-top: 8px;
-	max-height: 400px;
-	box-sizing: border-box;
-	background: #222;
-	border-radius: 25px;
-	border: 1px solid rgba(255, 255, 255, 0.15);
-	overflow: hidden; /* clips the inner scrollbar to the rounded corners */
+	min-height: 64px;
+	max-height: calc(100svh - 220px);
+	background: var(--wave-color-solid-base-bright, #18181b);
+	border: 1px solid var(--wave-color-opacity-contrast-fill-ultra-thin, #ffffff1a);
+	border-radius: 12px;
+	overflow: hidden auto;
+	overscroll-behavior: contain;
+	scrollbar-gutter: stable;
+	animation: luna-palette-fade 150ms ease-out;
+}
+.luna-command-palette-list-wrap:has(.luna-command-palette-list:empty) {
+	display: none;
 }
 
 .luna-command-palette-list {
-	max-height: 400px;
-	box-sizing: border-box;
-	overflow-y: auto;
-	padding: 8px 16px 16px;
-}
-
-.luna-command-palette-list-wrap:has(.luna-command-palette-list:empty) {
-	display: none;
+	display: flex;
+	flex-direction: column;
 }
 
 .luna-command-palette-list::-webkit-scrollbar {
@@ -60,41 +138,173 @@
 	margin: 20px 0;
 }
 .luna-command-palette-list::-webkit-scrollbar-thumb {
-	background: #555;
+	background: var(--wave-color-solid-contrast-darkest, #555);
 	border-radius: 8px;
 }
 
+/* "Recent searches" section header */
+.luna-command-palette-section-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 22px 20px 10px;
+}
+.luna-command-palette-section-title {
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 20px;
+	letter-spacing: 0;
+	color: var(--wave-color-solid-contrast-fill, #fff);
+}
+.luna-command-palette-section-clear {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 4px;
+	background: none;
+	border: none;
+	color: var(--wave-color-solid-contrast-darkest, #787887);
+	cursor: pointer;
+}
+.luna-command-palette-section-clear:hover {
+	color: var(--wave-color-solid-contrast-fill, #fff);
+}
+.luna-command-palette-section-clear svg {
+	width: 20px;
+	height: 20px;
+}
+
+/* Suggestion rows (TIDAL's `_directHit_7dbc579` direct hits) */
 .luna-command-palette-item {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	padding: 8px 16px;
-	border-radius: 20px; 
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 65px;
+	padding: 0 15px;
 	cursor: pointer;
-	animation: luna-palette-item-in 120ms ease-out both;
-	transition: background-color 100ms ease;
+	outline: none;
+}
+.luna-command-palette-item:hover,
+.luna-command-palette-item:focus-within,
+.luna-command-palette-item.luna-command-palette-selected {
+	background-color: var(--wave-color-opacity-base-brightest-regular, #30303666);
 }
 
-.luna-command-palette-item:nth-child(2) { animation-delay: 15ms; }
-.luna-command-palette-item:nth-child(3) { animation-delay: 30ms; }
-.luna-command-palette-item:nth-child(4) { animation-delay: 45ms; }
-.luna-command-palette-item:nth-child(5) { animation-delay: 60ms; }
-.luna-command-palette-item:nth-child(n + 6) { animation-delay: 75ms; }
-
-@keyframes luna-palette-item-in {
-	from {
-		opacity: 0;
-		transform: translateY(4px);
-	}
-	to {
-		opacity: 1;
-		transform: none;
-	}
+.luna-command-palette-item img,
+.luna-command-palette-item .placeholder,
+.luna-command-palette-item .heart {
+	width: 48px;
+	height: 48px;
+	flex-shrink: 0;
+	object-fit: cover;
+	border-radius: var(--market-core-radius-33, 2px);
+	outline: 1px solid #ffffff0d;
+	outline-offset: -1px;
+}
+.luna-command-palette-item .placeholder {
+	background: var(--wave-color-solid-base-brighter, #242429);
+}
+.luna-command-palette-item.round img,
+.luna-command-palette-item.round .placeholder {
+	border-radius: 50%;
+}
+/* Slot hosting Tidal's own sidebar icon (cloned svg / icon-font element) */
+.luna-command-palette-item .icon-slot {
+	width: 48px;
+	height: 48px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--wave-color-solid-contrast-fill, #fff);
+}
+.luna-command-palette-item .icon-slot svg,
+.luna-command-palette-item .icon-slot i {
+	width: 32px;
+	height: 32px;
+	font-size: 32px;
+}
+.luna-command-palette-item .heart {
+	padding: 8px;
+	color: var(--wave-color-solid-contrast-darker, #afafb6);
 }
 
-.luna-command-palette-list-wrap {
-	animation: luna-palette-fade 150ms ease-out;
+.luna-command-palette-item .luna-command-palette-text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	flex: 1;
+	margin-left: 16px;
+	padding-right: 16px;
 }
+.luna-command-palette-item .luna-command-palette-title {
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 20px;
+	letter-spacing: 0;
+	color: var(--wave-color-solid-contrast-fill, #fff);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.luna-command-palette-item .luna-command-palette-subtitle {
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 16px;
+	color: var(--wave-color-solid-contrast-darker, #afafb6);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* Empty state */
+.luna-command-palette-empty {
+	padding: 20px;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 20px;
+	color: var(--wave-color-solid-contrast-darker, #afafb6);
+}
+
+/* "View all results" footer (TIDAL's `_viewAllResultsContainer_515a3d8`) */
+.luna-command-palette-footer {
+	display: flex;
+	align-items: center;
+	box-sizing: border-box;
+	width: 100%;
+	height: 56px;
+	flex-shrink: 0;
+	padding: 0 16px;
+	background: none;
+	border: none;
+	outline: none;
+	cursor: pointer;
+	text-align: left;
+}
+.luna-command-palette-footer:hover,
+.luna-command-palette-footer:focus,
+.luna-command-palette-footer:focus-within {
+	background-color: var(--wave-color-opacity-base-brightest-regular, #30303666);
+}
+.luna-command-palette-footer-inner {
+	display: flex;
+	align-items: center;
+	font-size: 14px;
+	font-weight: 600;
+	line-height: 20px;
+	letter-spacing: 0;
+	color: var(--wave-color-solid-contrast-darker, #afafb6);
+}
+.luna-command-palette-footer-phrase {
+	color: var(--wave-color-solid-contrast-fill, #fff);
+	max-width: 230px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 @keyframes luna-palette-fade {
 	from {
 		opacity: 0;
@@ -106,67 +316,7 @@
 
 /* Respect reduced-motion preference */
 @media (prefers-reduced-motion: reduce) {
-	.luna-command-palette-item,
 	.luna-command-palette-list-wrap {
 		animation: none;
-		transition: none;
 	}
-}
-.luna-command-palette-item:hover {
-	background: #333;
-}
-.luna-command-palette-item.selected,
-.luna-command-palette-item.selected:hover {
-	background: #3a3a3a;
-	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-}
-
-.luna-command-palette-item img,
-.luna-command-palette-item .placeholder,
-.luna-command-palette-item .heart {
-	width: 32px;
-	height: 32px;
-	flex-shrink: 0;
-	object-fit: cover;
-}
-/* Slot hosting Tidal's own sidebar icon (cloned svg / icon-font element) */
-.luna-command-palette-item .icon-slot {
-	width: 32px;
-	height: 32px;
-	flex-shrink: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-.luna-command-palette-item .icon-slot svg,
-.luna-command-palette-item .icon-slot i {
-	width: 24px;
-	height: 24px;
-	font-size: 24px;
-}
-.luna-command-palette-item .placeholder {
-	background: #333;
-}
-
-.luna-command-palette-item.round img,
-.luna-command-palette-item.round .placeholder {
-	border-radius: 50%;
-}
-.luna-command-palette-item .heart {
-	padding: 4px;
-	color: #e91e63;
-}
-
-.luna-command-palette-item .name {
-	flex: 1;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.luna-command-palette-item .type {
-	opacity: 0.6;
-	font-size: 12px;
-	text-transform: capitalize;
-	flex-shrink: 0;
 }
