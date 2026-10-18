@@ -1,0 +1,11 @@
+{
+	"name": "@frostplexx/audio-studio",
+	"description": "Deep playback-controller hook with a WebAudio take-over engine: karaoke (center-vocal cancellation), 3-band EQ and gapless crossfade — audio surgery stock TIDAL can't do.",
+	"author": {
+		"name": "Frostplexx",
+		"url": "https://github.com/frostplexx",
+		"avatarUrl": "https://avatars.githubusercontent.com/u/62436912?v=4"
+	},
+	"main": "./src/index.ts",
+	"type": "module"
+}

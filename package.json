@@ -14,6 +14,7 @@
 		"concurrently": "^10.0.0",
 		"http-server": "^14.1.1",
 		"luna": "github:Inrixia/TidaLuna",
+		"mediabunny": "^1.61.6",
 		"oby": "^15.1.2",
 		"rimraf": "^6.1.2",
 		"tsx": "^4.21.0",
