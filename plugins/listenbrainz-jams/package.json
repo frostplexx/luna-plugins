@@ -1,0 +1,11 @@
+{
+	"name": "@frostplexx/listenbrainz-jams",
+	"description": "Syncs ListenBrainz Weekly Jams, Daily Jams and Weekly Exploration into unlisted TIDAL playlists.",
+	"author": {
+		"name": "Frostplexx",
+		"url": "https://github.com/frostplexx",
+		"avatarUrl": "https://avatars.githubusercontent.com/u/62436912?v=4"
+	},
+	"main": "./src/index.ts",
+	"type": "module"
+}
