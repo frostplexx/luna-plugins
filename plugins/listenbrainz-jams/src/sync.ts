@@ -1,8 +1,9 @@
 import { redux } from "@luna/lib";
 
 import { FEEDS, settings, type JamType, type PlaylistState } from "./config";
+import { mapConcurrent } from "./concurrency";
 import { fetchRecommendationPlaylist, fetchRecordingIsrcs } from "./listenbrainz";
-import { resolveTracks, writePlaylist } from "./tidal";
+import { resolveTracks, resetTidalAuth, writePlaylist } from "./tidal";
 import { errSignal, trace } from "./trace";
 
 export interface SyncStatus {
@@ -60,12 +61,10 @@ const runSync = async (): Promise<SyncReport> => {
 		errSignal!._ = message;
 		throw new Error(message);
 	}
-	const playlistSize = Number.isFinite(settings.playlistSize)
-		? Math.min(50, Math.max(1, Math.floor(settings.playlistSize)))
-		: 30;
 
 	setStatus({ running: true, stage: "Starting", completed: 0, error: undefined });
 	errSignal!._ = undefined;
+	resetTidalAuth();
 
 	let matched = 0;
 	let missing = 0;
@@ -73,13 +72,13 @@ const runSync = async (): Promise<SyncReport> => {
 	let firstError: string | undefined;
 	let wrotePlaylist = false;
 
-	for (const feed of FEEDS) {
+	await mapConcurrent(FEEDS, FEEDS.length, async (feed) => {
 		try {
 			updateFeed(feed.type, { error: undefined });
 			setStatus({ stage: `Fetching ${feed.label}` });
 
 			const playlist = await fetchRecommendationPlaylist(username, feed.type);
-			const wanted = playlist.tracks.slice(0, playlistSize);
+			const wanted = playlist.tracks;
 			const isrcs = await fetchRecordingIsrcs(wanted).catch((error) => {
 				trace.warn.withContext("Fetching ISRCs")(error);
 				return new Map<string, string[]>();
@@ -118,7 +117,7 @@ const runSync = async (): Promise<SyncReport> => {
 			updateFeed(feed.type, { error: message });
 			trace.err.withContext(`Syncing ${feed.label}`)(error);
 		}
-	}
+	});
 
 	if (wrotePlaylist) redux.actions["content/LOAD_CREATED_PLAYLISTS"]({ reset: true });
 

@@ -1,5 +1,5 @@
 import { redux } from "@luna/lib";
-import { LunaButtonSetting, LunaNumberSetting, LunaSettings, LunaSwitchSetting, LunaTextSetting } from "@luna/ui";
+import { LunaButtonSetting, LunaSettings, LunaSwitchSetting, LunaTextSetting } from "@luna/ui";
 import React from "react";
 
 import { FEEDS, settings } from "./config";
@@ -26,7 +26,7 @@ const StatusLine = () => {
 			{status.error && <div style={{ opacity: 0.8 }}>{status.error}</div>}
 			{status.running && (
 				<div style={{ opacity: 0.7 }}>
-					Playlist {Math.min(status.completed + 1, status.total)} of {status.total}
+					Finished {status.completed} of {status.total}
 				</div>
 			)}
 		</div>
@@ -35,7 +35,6 @@ const StatusLine = () => {
 
 export const Settings = () => {
 	const [username, setUsername] = React.useState(settings.username);
-	const [playlistSize, setPlaylistSize] = React.useState(settings.playlistSize);
 	const [autoSync, setAutoSync] = React.useState(settings.autoSync);
 	const [running, setRunning] = React.useState(getSyncStatus().running);
 
@@ -45,24 +44,13 @@ export const Settings = () => {
 		<LunaSettings>
 			<LunaTextSetting
 				title="ListenBrainz username"
-				desc="Public ListenBrainz account used for the Weekly Jams, Daily Jams and Weekly Exploration feeds. No login is needed."
+				desc="Public ListenBrainz account used for the Weekly Jams, Daily Jams and Weekly Exploration feeds."
 				value={username}
-				placeholder="Frostplexx"
+				placeholder="alice"
 				onChange={(event) => {
 					setUsername(event.target.value);
 					settings.username = event.target.value;
 					settings.lastSyncAt = 0;
-				}}
-			/>
-			<LunaNumberSetting
-				title="Tracks per playlist"
-				desc="How many recommendations to take from the top of each ListenBrainz feed"
-				min={1}
-				max={50}
-				value={playlistSize}
-				onNumber={(value) => {
-					setPlaylistSize(value);
-					settings.playlistSize = value;
 				}}
 			/>
 			<LunaSwitchSetting
@@ -77,7 +65,7 @@ export const Settings = () => {
 			/>
 			<LunaButtonSetting
 				title="Sync now"
-				desc="Fetch the latest ListenBrainz recommendations and update the three TIDAL playlists"
+				desc="Fetch the latest ListenBrainz recommendations and update the TIDAL playlists"
 				loading={running}
 				onClick={() => void syncAll().catch(() => {})}
 			>

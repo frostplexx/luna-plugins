@@ -1,21 +1,49 @@
 import { redux, TidalApi } from "@luna/lib";
 
 import { settings, type FeedDefinition } from "./config";
+import { createLimiter, mapConcurrent } from "./concurrency";
 import { recordingMbid, type ListenBrainzTrack } from "./listenbrainz";
 import { trace } from "./trace";
 
 const V1 = "https://api.tidal.com/v1";
 const V2 = "https://openapi.tidal.com/v2";
+const TIDAL_CONCURRENCY = 8;
+const MATCH_CONCURRENCY = 6;
+const AUTH_TTL_MS = 5 * 60_000;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const limitTidal = createLimiter(TIDAL_CONCURRENCY);
+
+let authCache: { headers: Record<string, string>; at: number } | undefined;
+let authPromise: Promise<Record<string, string>> | undefined;
+
+const getAuthHeaders = async () => {
+	const now = Date.now();
+	if (authCache !== undefined && now - authCache.at < AUTH_TTL_MS) return authCache.headers;
+
+	authPromise ??= TidalApi.getAuthHeaders()
+		.then((headers) => {
+			authCache = { headers, at: Date.now() };
+			return headers;
+		})
+		.finally(() => {
+			authPromise = undefined;
+		});
+	return authPromise;
+};
+
+export const resetTidalAuth = () => {
+	authCache = undefined;
+	authPromise = undefined;
+};
 
 const request = async (url: string, init: RequestInit = {}) => {
 	const headers = new Headers(init.headers);
-	const authHeaders = await TidalApi.getAuthHeaders();
+	const authHeaders = await getAuthHeaders();
 	for (const [key, value] of Object.entries(authHeaders)) headers.set(key, value);
 
 	for (let attempt = 0; ; attempt++) {
-		const res = await fetch(url, { ...init, headers });
+		const res = await limitTidal(() => fetch(url, { ...init, headers }));
 		if ((res.status === 429 || res.status >= 500) && attempt < 3) {
 			const retryAfter = Number(res.headers.get("retry-after"));
 			await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2000 * 2 ** attempt);
@@ -278,12 +306,9 @@ export const resolveTracks = async (
 	isrcsByMbid: Map<string, string[]> = new Map(),
 	onProgress?: (done: number, total: number) => void,
 ): Promise<ResolvedTracks> => {
-	const ids: string[] = [];
-	const seen = new Set<string>();
-	const missing: ListenBrainzTrack[] = [];
+	let done = 0;
 
-	for (let index = 0; index < tracks.length; index++) {
-		const track = tracks[index];
+	const matches = await mapConcurrent(tracks, MATCH_CONCURRENCY, async (track) => {
 		let match: TrackMatch | undefined;
 
 		const mbid = recordingMbid(track);
@@ -294,7 +319,6 @@ export const resolveTracks = async (
 				return undefined;
 			});
 			if (match !== undefined) break;
-			await sleep(80);
 		}
 
 		match ??= await findTrack(track).catch((err) => {
@@ -302,17 +326,23 @@ export const resolveTracks = async (
 			return undefined;
 		});
 
-		if (match === undefined) {
-			missing.push(track);
-		} else if (!seen.has(match.id)) {
-			seen.add(match.id);
-			ids.push(match.id);
-		} else {
-			missing.push(track);
-		}
+		done++;
+		onProgress?.(done, tracks.length);
+		return match;
+	});
 
-		onProgress?.(index + 1, tracks.length);
-		if (index + 1 < tracks.length) await sleep(120);
+	const ids: string[] = [];
+	const seen = new Set<string>();
+	const missing: ListenBrainzTrack[] = [];
+
+	for (let index = 0; index < matches.length; index++) {
+		const match = matches[index];
+		if (match === undefined || seen.has(match.id)) {
+			missing.push(tracks[index]);
+			continue;
+		}
+		seen.add(match.id);
+		ids.push(match.id);
 	}
 
 	return { ids, missing };

@@ -37,7 +37,6 @@ export interface PlaylistState {
 
 export interface PluginSettings {
 	username: string;
-	playlistSize: number;
 	autoSync: boolean;
 	lastSyncAt: number;
 	playlists: Record<JamType, PlaylistState>;
@@ -45,7 +44,6 @@ export interface PluginSettings {
 
 export const settings = await ReactiveStore.getPluginStorage<PluginSettings>("ListenBrainzJams", {
 	username: "Frostplexx",
-	playlistSize: 30,
 	autoSync: true,
 	lastSyncAt: 0,
 	playlists: {

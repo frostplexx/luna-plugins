@@ -13,7 +13,6 @@ No ListenBrainz login or token is required: recommendation feeds are public for 
 ## Settings
 
 - **ListenBrainz username** — the account whose recommendations should be imported.
-- **Tracks per playlist** — number of tracks taken from the top of each feed (default 30).
 - **Sync automatically** — refresh on TIDAL startup and at most once every six hours.
 - **Sync now** — run a refresh immediately.
 
